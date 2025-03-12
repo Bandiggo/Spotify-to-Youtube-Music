@@ -209,9 +209,9 @@ def get_conversion_progress(playlist_id):
         progress = getattr(ytmusic_service, 'conversion_progress', {}).get(playlist_id, {})
         last_sent = {'total': 0, 'processed': 0, 'added': 0, 'failed': 0}
         
-        # Stream updates for up to 5 minutes
+        # Stream updates for up to 15 minutes
         start_time = time.time()
-        while time.time() - start_time < 300:  # 5 minutes timeout
+        while time.time() - start_time < 900:  # 15 minutes timeout
             current = getattr(ytmusic_service, 'conversion_progress', {}).get(playlist_id, {})
             
             # Send update if there's a change or every 3 seconds as heartbeat

@@ -107,7 +107,6 @@ const ConvertPage: React.FC = () => {
     } catch (error: any) {
       console.error("Error fetching public playlist:", error);
 
-      // Enhanced error reporting
       if (error.response) {
         // Server responded with error
         setError(
@@ -212,7 +211,7 @@ const ConvertPage: React.FC = () => {
     return (
       <Container sx={{ my: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Converting Playlist
+          
         </Typography>
         <ConversionProgress progress={progressData} />
       </Container>

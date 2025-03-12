@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardMedia, Typography, Button, CardActions } from '@mui/material';
+import { Card, CardBody, CardFooter, Button, Image } from '@heroui/react';
 
 interface PlaylistProps {
   id: string;
@@ -11,28 +11,33 @@ interface PlaylistProps {
 
 const PlaylistCard: React.FC<PlaylistProps> = ({ id, name, tracks, image, onSelect }) => {
   return (
-    <Card sx={{ maxWidth: 345, m: 2 }}>
-      {image && (
-        <CardMedia
-          component="img"
-          height="140"
-          image={image}
-          alt={name}
-        />
-      )}
-      <CardContent>
-        <Typography gutterBottom variant="h5" component="div">
-          {name}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {tracks} tracks
-        </Typography>
-      </CardContent>
-      <CardActions>
-        <Button size="small" onClick={() => onSelect(id, name)}>
+    <Card className="max-w-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      <div className="h-40 overflow-hidden">
+        {image ? (
+          <Image
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-default-100 flex items-center justify-center">
+            <span className="text-4xl">🎵</span>
+          </div>
+        )}
+      </div>
+      <CardBody>
+        <h3 className="text-lg font-bold truncate">{name}</h3>
+        <p className="text-default-500">{tracks} tracks</p>
+      </CardBody>
+      <CardFooter>
+        <Button 
+          color="primary" 
+          onClick={() => onSelect(id, name)}
+          className="w-full"
+        >
           Select for conversion
         </Button>
-      </CardActions>
+      </CardFooter>
     </Card>
   );
 };
