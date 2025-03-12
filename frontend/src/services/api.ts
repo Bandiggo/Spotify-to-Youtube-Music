@@ -46,7 +46,8 @@ export const spotifyApi = {
   convertPlaylist: (playlistId: string, playlistName: string, description: string) => 
     api.post('/convert', { playlist_id: playlistId, playlist_name: playlistName, description }),
   diagnose: () => api.get('/diagnose'),
-  testPlaylists: () => api.get('/test-playlists')
+  testPlaylists: () => api.get('/test-playlists'),
+  getConversionProgress: (playlistId: string) => api.get(`/convert-progress/${playlistId}`)
 };
 
 export default api;

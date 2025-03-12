@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Container,
   Typography,
@@ -11,12 +11,22 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import api, { spotifyApi } from "../services/api";
 import PlaylistCard from "../components/PlaylistCard";
+import ConversionProgress from "../components/ConversionProgress";
 
 interface Playlist {
   id: string;
   name: string;
   tracks: number;
   image?: string;
+}
+
+interface ConversionProgressData {
+  total: number;
+  processed: number;
+  added: number;
+  failed: number;
+  completed: boolean;
+  playlist_id: string;
 }
 
 const ConvertPage: React.FC = () => {
@@ -27,20 +37,29 @@ const ConvertPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversionResult, setConversionResult] = useState<any>(null);
+  const [progressData, setProgressData] = useState<ConversionProgressData | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+  const [ytPlaylistId, setYtPlaylistId] = useState<string | null>(null);
+  const eventSource = useRef<EventSource | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const playlistId = params.get("playlist");
-
+  
     if (playlistId) {
-      // If we have a playlist ID in the URL, fetch only that playlist
       fetchPublicPlaylist(playlistId);
     } else {
-      // Otherwise try to fetch user playlists (requires login)
       fetchUserPlaylists();
     }
+  
+    // Cleanup function
+    return () => {
+      if (eventSource.current) {
+        eventSource.current.close();
+      }
+    };
   }, [location]);
 
   const fetchUserPlaylists = async () => {
@@ -119,24 +138,62 @@ const ConvertPage: React.FC = () => {
 
   const handleConvert = async () => {
     if (!selectedPlaylist) return;
-
+  
     setIsLoading(true);
     setError(null);
+    setIsConverting(true);
+    
     try {
+      // Start the conversion process
       const response = await spotifyApi.convertPlaylist(
         selectedPlaylist.id,
         selectedPlaylist.name,
         `Converted from Spotify playlist: ${selectedPlaylist.name}`
       );
-
-      setConversionResult(response.data);
+  
+      // Store the YouTube Music playlist ID
+      const ytmPlaylistId = response.data.youtube_playlist_id;
+      setYtPlaylistId(ytmPlaylistId);
+      
+      // Connect to SSE endpoint for progress updates
+      if (eventSource.current) {
+        eventSource.current.close();
+      }
+      
+      const newEventSource = new EventSource(`http://localhost:5000/convert-progress/${ytmPlaylistId}`);
+      eventSource.current = newEventSource;
+      
+      newEventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        setProgressData(data);
+        
+        if (data.completed) {
+          newEventSource.close();
+          setIsConverting(false);
+          setConversionResult({
+            status: 'success',
+            spotify_tracks: data.total,
+            youtube_tracks_added: data.added,
+            youtube_tracks_failed: data.failed,
+            youtube_playlist_id: data.playlist_id
+          });
+        }
+      };
+      
+      newEventSource.onerror = () => {
+        newEventSource.close();
+        setIsConverting(false);
+        setError("Error receiving conversion progress updates");
+      };
+      
+      setIsLoading(false);
     } catch (error: any) {
       console.error("Conversion error:", error);
       setError(
         error.response?.data?.error || "Conversion failed. Please try again."
       );
-    } finally {
       setIsLoading(false);
+      setIsConverting(false);
     }
   };
 
@@ -145,8 +202,19 @@ const ConvertPage: React.FC = () => {
       <Container sx={{ textAlign: "center", my: 4 }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
-          {selectedPlaylist ? "Converting playlist..." : "Loading playlists..."}
+          {selectedPlaylist ? "Starting conversion..." : "Loading playlists..."}
         </Typography>
+      </Container>
+    );
+  }
+  
+  if (isConverting && progressData) {
+    return (
+      <Container sx={{ my: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          Converting Playlist
+        </Typography>
+        <ConversionProgress progress={progressData} />
       </Container>
     );
   }

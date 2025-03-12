@@ -4,6 +4,10 @@ from app.services.youtube import YouTubeMusicService
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime
+from flask import Response, stream_with_context
+import time
+import json
+from threading import Thread
 
 bp = Blueprint('main', __name__)
 
@@ -61,19 +65,25 @@ def convert_playlist():
         # Get tracks from Spotify
         tracks = spotify_service.get_playlist_tracks(playlist_id, use_auth)
         
-        # Create playlist on YouTube Music and add tracks
+        # Create playlist on YouTube Music
         ytm_playlist_id = ytmusic_service.create_playlist(
             title=data.get('playlist_name', 'Imported from Spotify'),
             description=data.get('description', 'Converted from Spotify')
         )
         
-        results = ytmusic_service.add_tracks_to_playlist(ytm_playlist_id, tracks)
+        # Start tracks addition in a background thread
+        thread = Thread(
+            target=ytmusic_service.add_tracks_to_playlist, 
+            args=(ytm_playlist_id, tracks)
+        )
+        thread.daemon = True
+        thread.start()
         
+        # Return immediately with playlist ID
         return jsonify({
-            'status': 'success',
+            'status': 'processing',
+            'message': 'Conversion started. Check progress for updates.',
             'spotify_tracks': len(tracks),
-            'youtube_tracks_added': results['added'],
-            'youtube_tracks_failed': results['failed'],
             'youtube_playlist_id': ytm_playlist_id
         })
     except Exception as e:
@@ -191,3 +201,41 @@ def test_youtube():
             'status': 'error',
             'message': str(e)
         }), 400
+        
+@bp.route('/convert-progress/<playlist_id>')
+def get_conversion_progress(playlist_id):
+    """Stream conversion progress as Server-Sent Events"""
+    def generate():
+        progress = getattr(ytmusic_service, 'conversion_progress', {}).get(playlist_id, {})
+        last_sent = {'total': 0, 'processed': 0, 'added': 0, 'failed': 0}
+        
+        # Stream updates for up to 5 minutes
+        start_time = time.time()
+        while time.time() - start_time < 300:  # 5 minutes timeout
+            current = getattr(ytmusic_service, 'conversion_progress', {}).get(playlist_id, {})
+            
+            # Send update if there's a change or every 3 seconds as heartbeat
+            if (current != last_sent) or (time.time() % 3 < 0.1):
+                data = {
+                    'total': current.get('total', 0),
+                    'processed': current.get('processed', 0),
+                    'added': current.get('added', 0),
+                    'failed': current.get('failed', 0),
+                    'completed': current.get('completed', False),
+                    'playlist_id': current.get('ytm_playlist_id', '')
+                }
+                last_sent = data.copy()
+                
+                yield f"data: {json.dumps(data)}\n\n"
+                
+                # If conversion is complete, end stream
+                if data['completed']:
+                    break
+            
+            time.sleep(0.5)
+    
+    return Response(stream_with_context(generate()), 
+                   mimetype='text/event-stream',
+                   headers={'Cache-Control': 'no-cache',
+                           'X-Accel-Buffering': 'no',
+                           'Access-Control-Allow-Origin': 'http://localhost:3000'})

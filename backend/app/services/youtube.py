@@ -4,6 +4,9 @@ import json
 
 class YouTubeMusicService:
     def __init__(self):
+        # Initialize progress tracking dictionary
+        self.conversion_progress = {}
+        
         try:
             # Try both authentication methods (browser.json or headers_auth.json)
             # in case the user has set up either one
@@ -44,12 +47,25 @@ class YouTubeMusicService:
         added = 0
         failed = 0
         
+        # Initialize progress tracking
+        progress_id = playlist_id  # Use playlist_id as a key
+        self.conversion_progress[progress_id] = {
+            'total': len(tracks),
+            'processed': 0,
+            'added': 0,
+            'failed': 0,
+            'completed': False,
+            'ytm_playlist_id': playlist_id
+        }
+        
         print(f"Adding {len(tracks)} tracks to YouTube Music playlist {playlist_id}")
         
         for i, track in enumerate(tracks):
             query = track.get('query')
             if not query:
                 failed += 1
+                self.conversion_progress[progress_id]['failed'] = failed
+                self.conversion_progress[progress_id]['processed'] = i + 1
                 continue
                 
             try:
@@ -64,12 +80,21 @@ class YouTubeMusicService:
                     video_id = search_results[0]['videoId']
                     self.ytmusic.add_playlist_items(playlist_id, [video_id])
                     added += 1
+                    self.conversion_progress[progress_id]['added'] = added
                 else:
                     print(f"No results found for track: {query}")
                     failed += 1
+                    self.conversion_progress[progress_id]['failed'] = failed
             except Exception as e:
                 print(f"Failed to add track '{query}': {str(e)}")
                 failed += 1
+                self.conversion_progress[progress_id]['failed'] = failed
+            
+            # Update progress counter
+            self.conversion_progress[progress_id]['processed'] = i + 1
+        
+        # Mark conversion as complete
+        self.conversion_progress[progress_id]['completed'] = True
         
         print(f"Finished adding tracks. Added: {added}, Failed: {failed}")
         return {
