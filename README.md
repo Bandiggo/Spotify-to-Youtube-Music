@@ -1,4 +1,4 @@
-﻿# Spotify to YouTube Music Converter
+﻿# Spotify to YouTube Playlist Convert
  A web application that allows you to easily convert your Spotify playlists to YouTube Music.
 ![chrome_zFH8dl6d44](https://github.com/user-attachments/assets/4197531f-35a3-4872-b930-63538dae40f7)
 
