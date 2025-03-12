@@ -69,7 +69,7 @@ cp .env.example .env
    - Install ytmusicapi CLI with `pip install ytmusicapi`
    - Run `ytmusicapi browser` and follow the instructions to create a `browser.json` file
    - Move the generated `browser.json` file to the `backend` directory
-   - Detailed information can be found in: https://ytmusicapi.readthedocs.io/en/stable/setup/browser.html
+   - Detailed information can be found in: [ytmusicapi](https://ytmusicapi.readthedocs.io/en/stable/setup/browser.html)
 
 ### Frontend Setup
 
